@@ -574,6 +574,10 @@ Progression.NoQuestXpToGold = 1
 Progression.UnlinkedAuctionHouses = 1
 DebuffLimit = 0
 
+# Opt-in Benilla aura snapshots (build 5875); legacy update fields are unchanged.
+# Set DebuffLimit = 255 separately to allow 255 gameplay debuffs. Restart to change.
+Benilla.ExtendedAuras = 0
+
 ###################################################################################################################
 # SERVER LOGGING
 #

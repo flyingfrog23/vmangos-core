@@ -626,6 +626,7 @@ class Unit : public SpellCaster
         uint32 m_lastManaUseSpellId;
         uint32 m_lastManaUseTimer;
         uint32 m_spellUpdateTimeBuffer;
+        bool m_extendedAurasDirty = false;
 
         void _UpdateSpells(uint32 time);
         void _UpdateAutoRepeatSpell();
@@ -762,6 +763,12 @@ class Unit : public SpellCaster
         Aura* GetAura(AuraType type, SpellFamily family, uint64 familyFlag, ObjectGuid casterGuid = ObjectGuid());
         SpellAuraHolder* GetSpellAuraHolder(uint32 spellid) const;
         SpellAuraHolder* GetSpellAuraHolder(uint32 spellid, ObjectGuid casterGUID) const;
+
+        void BuildCreateUpdateBlockForPlayer(UpdateData& data, Player* target) const override;
+        void MarkExtendedAurasDirty() { m_extendedAurasDirty = true; }
+        uint16 AllocateExtendedAuraSlot(bool positive) const;
+        void SendExtendedAuras(Player* viewer) const;
+        void BroadcastExtendedAuras();
 
         SpellAuraHolderMap      & GetSpellAuraHolderMap() { return m_spellAuraHolders; }
         SpellAuraHolderMap const& GetSpellAuraHolderMap() const { return m_spellAuraHolders; }

@@ -444,8 +444,13 @@ WorldSocket::HandlerResult WorldSocket::_HandleAuthSession(WorldPacket& recvPack
     sWorld.AddSession(m_Session);
 
     // Create and send the Addon packet
-    if (sAddOnHandler.BuildAddonPacket(&recvPacket, &addonPacket))
+    bool extendedAuras = false;
+    if (sAddOnHandler.BuildAddonPacket(&recvPacket, &addonPacket, extendedAuras))
+    {
+        m_Session->SetExtendedAuras(extendedAuras && clientBuild == 5875 &&
+            sWorld.getConfig(CONFIG_BOOL_BENILLA_EXTENDED_AURAS));
         SendPacket(addonPacket);
+    }
 
     return HandlerResult::Okay;
 }

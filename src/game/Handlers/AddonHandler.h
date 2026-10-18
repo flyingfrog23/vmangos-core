@@ -34,7 +34,7 @@ class AddonHandler
         AddonHandler();
         ~AddonHandler();
                                                             //built addon packet
-        bool BuildAddonPacket(WorldPacket* Source, WorldPacket* Target);
+        bool BuildAddonPacket(WorldPacket* Source, WorldPacket* Target, bool& extendedAuras);
 };
 #define sAddOnHandler MaNGOS::Singleton<AddonHandler>::Instance()
 #endif

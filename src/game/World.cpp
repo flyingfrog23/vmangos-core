@@ -997,6 +997,8 @@ void World::LoadConfigSettings(bool reload)
     setConfigMinMax(CONFIG_UINT32_SPELL_EFFECT_DELAY, "Spell.EffectDelay", 400, 0, 1000);
     setConfigMinMax(CONFIG_UINT32_SPELL_PROC_DELAY, "Spell.ProcDelay", 400, 0, 1000);
     setConfig(CONFIG_UINT32_DEBUFF_LIMIT, "DebuffLimit", 0);
+    if (configNoReload(reload, CONFIG_BOOL_BENILLA_EXTENDED_AURAS, "Benilla.ExtendedAuras", false))
+        setConfig(CONFIG_BOOL_BENILLA_EXTENDED_AURAS, "Benilla.ExtendedAuras", false);
 
     // If max debuff slots is at 0, decide based on patch.
     if (getConfig(CONFIG_UINT32_DEBUFF_LIMIT) == 0)

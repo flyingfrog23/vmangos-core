@@ -20,6 +20,7 @@
  */
 
 #include "AddonHandler.h"
+#include "ExtendedAuras.h"
 #include "Database/DatabaseEnv.h"
 #include "Opcodes.h"
 #include "WorldPacket.h"
@@ -49,8 +50,9 @@ enum AddonStatus
     ADDON_STATUS_HIDDEN  = 2,
 };
 
-bool AddonHandler::BuildAddonPacket(WorldPacket* sourcePacket, WorldPacket* targetPacket)
+bool AddonHandler::BuildAddonPacket(WorldPacket* sourcePacket, WorldPacket* targetPacket, bool& extendedAuras)
 {
+    extendedAuras = false;
     ByteBuffer decompressedPacket;
     uLongf addonRealSize;
     uint32 currentPosition;
@@ -123,6 +125,12 @@ bool AddonHandler::BuildAddonPacket(WorldPacket* sourcePacket, WorldPacket* targ
 
             decompressedPacket >> addonName;
             decompressedPacket >> flags >> modulusCRC >> urlCRC;
+
+#if SUPPORTED_CLIENT_BUILD == CLIENT_BUILD_1_12_1
+            if (addonName == ExtendedAuras::AddonName && flags == 1 &&
+                modulusCRC == ExtendedAuras::AddonCRC && urlCRC == 0)
+                extendedAuras = true;
+#endif
 
             //sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "ADDON: Name: %s Flags %u Modulus CRC: %u URL CRC %u", addonName.c_str(), flags, modulusCRC, urlCRC);
 

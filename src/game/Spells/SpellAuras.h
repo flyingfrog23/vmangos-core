@@ -194,6 +194,7 @@ class SpellAuraHolder
         int32 GetAuraDuration() const { return m_duration; }
         void SetAuraDuration(int32 duration) { m_duration = duration; };
 
+        uint16 GetExtendedAuraSlot() const { return m_extendedAuraSlot; }
         uint8 GetAuraSlot() const { return m_auraSlot; }
         void SetAuraSlot(uint8 slot) { m_auraSlot = slot; }
         uint8 GetAuraLevel() const { return m_auraLevel; }
@@ -253,6 +254,7 @@ class SpellAuraHolder
 
         ~SpellAuraHolder();
     private:
+        void RefreshExtendedAuraSlot();
         void UpdateAuraApplication();                       // called at charges or stack changes
 
         Unit* m_target;
@@ -264,6 +266,7 @@ class SpellAuraHolder
         SpellEntry const* m_spellProto;
         AuraScript* m_auraScript;
 
+        uint16 m_extendedAuraSlot = 0xffff;
         uint8 m_auraSlot;                                   // Aura slot on unit (for show in client)
         uint8 m_auraLevel;                                  // Aura level (store caster level for correct show level dep amount)
         uint32 m_procCharges;                               // Aura charges (0 for infinite)

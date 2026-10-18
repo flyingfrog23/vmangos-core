@@ -222,6 +222,8 @@ class WorldSession
         void SetUsername(std::string const& s) { m_username = s; }
         uint32 GetLatency() const { return m_latency; }
         void SetLatency(uint32 latency) { m_latency = latency; }
+        bool HasExtendedAuras() const { return m_extendedAuras; }
+        void SetExtendedAuras(bool value) { m_extendedAuras = value; }
         uint32 GetGameBuild() const { return m_gameBuild; }
         void SetGameBuild(uint32 v) { m_gameBuild = v; }
         ClientOSType GetOS() const { return m_clientOS; }
@@ -874,6 +876,7 @@ class WorldSession
         ClientOSType m_clientOS;
         ClientPlatformType m_clientPlatform;
         uint32 m_gameBuild;
+        bool m_extendedAuras = false;
         bool m_verifiedEmail;
         std::shared_ptr<PlayerBotEntry> m_bot;
         std::unique_ptr<SniffFile> m_sniffFile;

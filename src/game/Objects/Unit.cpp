@@ -19,6 +19,8 @@
  */
 
 #include "Unit.h"
+#include "ExtendedAuras.h"
+#include "Chat.h"
 #include "Creature.h"
 #include "Pet.h"
 #include "Totem.h"
@@ -228,6 +230,13 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
         UpdateReactives(m_spellUpdateTimeBuffer);
 
         m_spellUpdateTimeBuffer = 0;
+    }
+
+    if (m_extendedAurasDirty)
+    {
+        m_extendedAurasDirty = false;
+        if (sWorld.getConfig(CONFIG_BOOL_BENILLA_EXTENDED_AURAS))
+            BroadcastExtendedAuras();
     }
 
     UpdatePendingProcs(update_diff);
@@ -3816,6 +3825,7 @@ void Unit::DeleteAuraHolder(SpellAuraHolder* holder)
 
 void Unit::RemoveSpellAuraHolder(SpellAuraHolder* holder, AuraRemoveMode mode)
 {
+    MarkExtendedAurasDirty();
     SpellCaster* caster = holder->GetRealCaster();
     bool isChanneled = holder->IsChanneled(); // cache for after the holder is deleted
 
@@ -3886,6 +3896,7 @@ void Unit::RemoveSingleAuraFromSpellAuraHolder(SpellAuraHolder* holder, SpellEff
 
 void Unit::RemoveAura(Aura* Aur, AuraRemoveMode mode)
 {
+    MarkExtendedAurasDirty();
     // remove from list before mods removing (prevent cyclic calls, mods added before including to aura list - use reverse order)
     if (Aur->GetModifier()->m_auraname < TOTAL_AURAS)
         m_modAuras[Aur->GetModifier()->m_auraname].remove(Aur);
@@ -11026,4 +11037,85 @@ void Unit::WritePetSpellsCooldown(WorldPacket& data) const
         ++cdCount;
     }
     data.put<uint16>(cdCountPos, cdCount);
+}
+
+
+void Unit::BuildCreateUpdateBlockForPlayer(UpdateData& data, Player* target) const
+{
+    Object::BuildCreateUpdateBlockForPlayer(data, target);
+    // The snapshot may precede the batched CREATE. Benilla queues it until that CREATE arrives.
+    if (target)
+        SendExtendedAuras(target);
+}
+
+uint16 Unit::AllocateExtendedAuraSlot(bool positive) const
+{
+    std::vector<uint16_t> used;
+    used.reserve(m_spellAuraHolders.size());
+    for (auto const& entry : m_spellAuraHolders)
+        used.push_back(entry.second->GetExtendedAuraSlot());
+    return ExtendedAuras::Allocate(positive, used);
+}
+
+void Unit::SendExtendedAuras(Player* viewer) const
+{
+    if (!sWorld.getConfig(CONFIG_BOOL_BENILLA_EXTENDED_AURAS) ||
+        !viewer->GetSession()->HasExtendedAuras())
+        return;
+
+    std::vector<ExtendedAuras::Record> records;
+    for (auto const& entry : m_spellAuraHolders)
+    {
+        SpellAuraHolder const* holder = entry.second;
+        uint16 slot = holder->GetExtendedAuraSlot();
+        if (slot >= ExtendedAuras::Slots || holder->IsDeleted())
+            continue;
+        uint8 flags = 0;
+        if (holder->IsPositive() && !holder->GetSpellProto()->HasAttribute(SPELL_ATTR_NO_AURA_CANCEL))
+            flags |= AFLAG_CANCELABLE;
+        if (holder->GetAuraByEffectIndex(EFFECT_INDEX_0)) flags |= AFLAG_EFF_INDEX_0;
+        if (holder->GetAuraByEffectIndex(EFFECT_INDEX_1)) flags |= AFLAG_EFF_INDEX_1;
+        if (holder->GetAuraByEffectIndex(EFFECT_INDEX_2)) flags |= AFLAG_EFF_INDEX_2;
+        if (!(flags & (AFLAG_EFF_INDEX_0 | AFLAG_EFF_INDEX_1 | AFLAG_EFF_INDEX_2)))
+            continue;
+        Unit const* caster = holder->GetCaster();
+        uint32 count = holder->GetAuraCharges() > 0 ?
+            holder->GetAuraCharges() * holder->GetStackAmount() : holder->GetStackAmount();
+        records.push_back({slot, holder->GetId(), flags,
+            uint8(caster ? caster->GetLevel() : sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL)),
+            uint8(std::min(uint32(255), std::max(uint32(1), count))),
+            holder->IsPermanent() ? -1 : std::max(int32(0), holder->GetAuraDuration()),
+            holder->GetCasterGuid().GetRawValue()});
+    }
+    std::string message = ExtendedAuras::Encode(GetGUID(), records);
+    WorldPacket packet;
+    // Server-only SYSTEM envelope: never relay player addon chat into this channel.
+    ChatHandler::BuildChatPacket(packet, CHAT_MSG_SYSTEM, message.c_str(), LANG_ADDON);
+    viewer->GetSession()->SendPacket(&packet);
+}
+
+namespace
+{
+    struct ExtendedAuraDeliverer
+    {
+        Unit const* unit;
+        void Visit(CameraMapType& cameras)
+        {
+            for (auto const& ref : cameras)
+                if (Player* viewer = ref.getSource()->GetOwner())
+                    if (viewer != unit && viewer->GetSession()->HasExtendedAuras() &&
+                        viewer->IsInVisibleList_Unsafe(unit))
+                        unit->SendExtendedAuras(viewer);
+        }
+        template<class T> void Visit(GridRefManager<T>&) {}
+    };
+}
+
+void Unit::BroadcastExtendedAuras()
+{
+    if (Player* self = ToPlayer())
+        SendExtendedAuras(self);
+    ExtendedAuraDeliverer deliverer{this};
+    Cell::VisitWorldObjects(this, deliverer,
+        std::max(GetMap()->GetVisibilityDistance(), GetVisibilityModifier()));
 }

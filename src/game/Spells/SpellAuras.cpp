@@ -20,6 +20,7 @@
  */
 
 #include "Common.h"
+#include "ExtendedAuras.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 #include "Opcodes.h"
@@ -6724,15 +6725,29 @@ SpellAuraHolder::SpellAuraHolder(SpellEntry const* spellproto, Unit* target, Uni
         m_auraScript->OnHolderInit(this, caster);
 }
 
+void SpellAuraHolder::RefreshExtendedAuraSlot()
+{
+    // Removing one effect can change a mixed holder's polarity. Move only that holder.
+    if (m_extendedAuraSlot == ExtendedAuras::NoSlot ||
+        IsPositive() != (m_extendedAuraSlot < ExtendedAuras::PositiveSlots))
+        m_extendedAuraSlot = m_target->AllocateExtendedAuraSlot(IsPositive());
+}
+
 void SpellAuraHolder::AddAura(Aura* aura, SpellEffectIndex index)
 {
     ASSERT(index == aura->GetEffIndex());
     m_auras[index] = aura;
+    if (m_extendedAuraSlot < ExtendedAuras::Slots)
+        RefreshExtendedAuraSlot();
+    m_target->MarkExtendedAurasDirty();
 }
 
 void SpellAuraHolder::RemoveAura(SpellEffectIndex index)
 {
     m_auras[index] = nullptr;
+    if (m_extendedAuraSlot < ExtendedAuras::Slots)
+        RefreshExtendedAuraSlot();
+    m_target->MarkExtendedAurasDirty();
 }
 
 void SpellAuraHolder::ApplyAuraModifiers(bool apply, bool real)
@@ -6791,6 +6806,10 @@ void SpellAuraHolder::_AddSpellAuraHolder()
             }
         }
     }
+
+    if (sWorld.getConfig(CONFIG_BOOL_BENILLA_EXTENDED_AURAS) && IsNeedVisibleSlot(caster))
+        RefreshExtendedAuraSlot();
+    m_target->MarkExtendedAurasDirty();
 
     SetAuraSlot(slot);
 
@@ -7557,6 +7576,7 @@ void SpellAuraHolder::SetAuraLevel(uint32 slot, uint32 level)
 
 void SpellAuraHolder::UpdateAuraApplication()
 {
+    m_target->MarkExtendedAurasDirty();
     if (m_auraSlot >= MAX_AURAS)
         return;
 
@@ -7573,6 +7593,7 @@ void SpellAuraHolder::UpdateAuraApplication()
 
 void SpellAuraHolder::UpdateAuraDuration() const
 {
+    m_target->MarkExtendedAurasDirty();
     if (GetAuraSlot() >= MAX_AURAS || m_permanent)
         return;
 
